@@ -481,12 +481,13 @@ uint8_t append_file(char* file_name) {
 #endif
 
   //Start recording incoming characters
-  while(escape_chars_received < setting_max_escape_character) {
+  while ((escape_chars_received < setting_max_escape_character) ||
+        ( setting_max_escape_character == 0 )) { // Zero meaning, No Escape allowed - for binary files.
 
     uint8_t n = NewSerial.read(localBuffer, sizeof(localBuffer)); //Read characters from global buffer into the local buffer
     if (n > 0) {
 
-      if (localBuffer[0] == setting_escape_character) {
+      if ( (setting_max_escape_character != 0 ) && (localBuffer[0] == setting_escape_character)) {
         escape_chars_received++;
 
         //Scan the local buffer for esacape characters
@@ -673,7 +674,7 @@ void read_system_settings(void)
   //Read the number of escape_characters to look for
   //Default is 3
   setting_max_escape_character = EEPROM.read(LOCATION_MAX_ESCAPE_CHAR);
-  if(setting_max_escape_character == 0 || setting_max_escape_character == 255) 
+  if( setting_max_escape_character == 255) 
   {
     setting_max_escape_character = 3; //Reset number of escape characters to 3
     EEPROM.write(LOCATION_MAX_ESCAPE_CHAR, setting_max_escape_character);
@@ -803,7 +804,7 @@ void read_config_file(void)
     else if(setting_number == 2) //Max amount escape character
     {
       new_system_max_escape = new_setting_int;
-      if(new_system_max_escape == 0 || new_system_max_escape > 10) new_system_max_escape = 3; //Default is 3
+      if(new_system_max_escape < 0 || new_system_max_escape > 10) new_system_max_escape = 3; //Default is 3
     }
     else if(setting_number == 3) //System mode
     {
@@ -2032,9 +2033,9 @@ void system_menu(void)
     if(command == '6')
     {
       uint8_t choice = 10;
-      while(choice > 9 || choice < 1)
+      while(choice > 9 || choice < 0)
       {
-        NewSerial.print(F("\n\rEnter number of escape characters to look for (1 to 9): "));
+        NewSerial.print(F("\n\rEnter number of escape characters to look for (0 to 9): "));
         while(!NewSerial.available()); //Wait for user to hit character
         choice = NewSerial.read() - '0';
       }
@@ -2043,7 +2044,7 @@ void system_menu(void)
       EEPROM.write(LOCATION_MAX_ESCAPE_CHAR, setting_max_escape_character);
       record_config_file(); //Put this new setting into the config file
 
-        NewSerial.print(F("\n\rNumber of escape characters needed: "));
+      NewSerial.print(F("\n\rNumber of escape characters needed: "));
       NewSerial.println(setting_max_escape_character, DEC);
       return;
     }
@@ -2240,6 +2241,7 @@ uint8_t wildcmp(const char* wild, const char* string)
 
 //End wildcard functions
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 
 
 
