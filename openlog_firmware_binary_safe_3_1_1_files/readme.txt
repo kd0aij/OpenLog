@@ -93,7 +93,7 @@ for the ATMEGA chip to enter into it's bootloader mode. If in doubt about this, 
 the beginning of this document. With a succesful upload, your DOS terminal window will show the output which I have included at the
 end of this document.
 
-After a succesful upgrade you will want to check that firmware is working, but connecting to the OpenLog interactively from
+After a succesful upgrade you will want to check that firmware is working, by connecting to the OpenLog interactively from
 your terminal emulator. Connect, look for the blue light, and try to "escape" to an interactive session.
 You should still be able to escape, because your escape character is not set to zero.
 Now set your CONFIG.TXT with zero escape characters with a line like:-
