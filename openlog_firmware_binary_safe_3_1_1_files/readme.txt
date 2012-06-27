@@ -77,12 +77,24 @@ that my serial communications were working with the OpenLog. I hope that you too
 It is now vital that you disconnect your terminal emulator so that the COM device is released and available for the 
 firmware update tool called avrdude.exe .
 
-From the unzipped directory of files, run the DOS command below, changing the COM port to reflect the COM port that you are using.
+From the unzipped directory of files, prepare to run the DOS command below (but don't press enter at the end of the line, plesae wait), 
+changing the COM port to reflect the COM port that you are using.
 Note: The baud rate for this command will always be 57600 regardless of whatever Baud rate was in CONFIG.TXT in the Openlog
 SD RAM file sysetm. This is because the avrdude.exe program is using the bootloader in the microprocessor chip which is permanently
 set to 57600.
 
-Afterwards. Look again interactively.
+C:\Users\phollands\Desktop\OpenLog Firmware>avrdude.exe -p atmega328p -P COM5 -c
+ stk500v1 -b 57600 -Cavrdude.conf -U flash:w:openlog_binary_safe_3_1_1.cpp.hex
+
+Before you press enter, power off your OpenLog. In a moment you are going to want to do too things in very quick succession.
+(Less than 1/4 of a second). YOu wll want to press "enter" to execute the comamnd above (avrdude.exe), and then you will want to 
+immediately power up the OpenLog. I cannot stress but that these two operations have to happen very quickly one after the other,
+for the ATMEGA chip to enter into it's bootloader mode. If in doubt about this, please see the demonstration video referenced at
+the beginning of this document. With a succesful upload, your DOS terminal window will show the output which I have included at the
+end of this document.
+
+After a succesful upgrade you will want to check that firmware is working, but connecting to the OpenLog interactively from
+your terminal emulator. Connect, look for the blue light, and try to "escape" to an interactive session.
 You should still be able to escape, because your escape character is not set to zero.
 Now set your CONFIG.TXT with zero escape characters with a line like:-
 57600,26,0,0,1,1
