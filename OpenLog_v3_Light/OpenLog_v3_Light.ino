@@ -120,7 +120,11 @@
  */
 
 #include <SdFat.h> //We do not use the built-in SD.h file because it calls Serial.print
+
+//mw: We rely on a flow-control modified version of SerialPort in the Arduino Core: SerialPort.h and SerialPort.cpp
 #include <SerialPort.h> //This is a new/beta library written by Bill Greiman. You rock Bill!
+
+
 #include <EEPROM.h>
 
 SerialPort<0, 800, 0> NewSerial;
@@ -164,6 +168,7 @@ SerialPort<0, 800, 0> NewSerial;
 #define BAUD_4800	4
 #define BAUD_19200	5
 #define BAUD_38400	6
+#define BAUD_230400	7
 
 #define MODE_NEWLOG	0
 #define MODE_SEQLOG     1
@@ -242,6 +247,7 @@ void setup(void)
   if(setting_uart_speed == BAUD_38400) NewSerial.begin(38400);
   if(setting_uart_speed == BAUD_57600) NewSerial.begin(57600);
   if(setting_uart_speed == BAUD_115200) NewSerial.begin(115200);
+  if(setting_uart_speed == BAUD_230400) NewSerial.begin(230400);
   NewSerial.print("1");
 
   //Setup SD & FAT
@@ -378,9 +384,7 @@ void seqlog(void)
 //Modifying this loop may negatively affect how well the device can record at high baud rates.
 //Appends a stream of serial data to a given file
 //Assumes the currentDirectory variable has been set before entering the routine
-//Does not exit until Ctrl+z (ASCII 26) is received
-//Returns 0 on error
-//Returns 1 on success
+//never returns
 uint8_t append_file(char* file_name)
 {
   // O_CREAT - create the file if it does not exist
@@ -396,38 +400,28 @@ uint8_t append_file(char* file_name)
 
   NewSerial.print('<'); //give a different prompt to indicate no echoing
   digitalWrite(statled1, HIGH); //Turn on indicator LED
+  digitalWrite(statled2, HIGH); //Turn on indicator LED
 
-#if RAM_TESTING
-  NewSerial.print("Free RAM receive ready: ");
-  NewSerial.println(memoryTest());
-#endif
+  //#if RAM_TESTING
+  //  NewSerial.print("Free RAM receive ready: ");
+  //  NewSerial.println(memoryTest());
+  //#endif
 
-#define LOCAL_BUFF_SIZE  32
-  uint8_t localBuffer[LOCAL_BUFF_SIZE];
+  uint8_t localBuffer[32];
 
   uint16_t idleTime = 0;
-  const uint16_t MAX_IDLE_TIME_MSEC = 100; //The number of milliseconds before unit goes to sleep
+  const uint16_t MAX_IDLE_TIME_MSEC = 250; //The number of milliseconds before unit goes to sleep
 
-  //Ugly calculation to figure out how many times to loop before we need to force a record (file.sync())
-  /*uint32_t maxLoops;
-  uint16_t timeSinceLastRecord = 0; //Sync the file every maxLoop # of bytes
-  if(setting_uart_speed == BAUD_2400) maxLoops = 2400; //Set bits per second
-  if(setting_uart_speed == BAUD_4800) maxLoops = 4800;
-  if(setting_uart_speed == BAUD_9600) maxLoops = 9600;
-  if(setting_uart_speed == BAUD_19200) maxLoops = 19200;
-  if(setting_uart_speed == BAUD_38400) maxLoops = 38400;
-  if(setting_uart_speed == BAUD_57600) maxLoops = 57600;
-  if(setting_uart_speed == BAUD_115200) maxLoops = 115200;
-  maxLoops /= 8; //Convert to bytes per second
-  maxLoops /= LOCAL_BUFF_SIZE; //Convert to # of loops
-  */
-
+  uint16_t syncTime = 0;
+  const uint16_t MAX_SYNC_TIME_MSEC = 17000; // about 10 seconds at 115.2K baud
 
   //Start recording incoming characters
-  while(1) { //Infinite loop
+  while(1) {
+MYJUMP:
 
     uint8_t n = NewSerial.read(localBuffer, sizeof(localBuffer)); //Read characters from global buffer into the local buffer
     if (n > 0) {
+
       //Scan the local buffer for esacape characters
       //In the light version of OpenLog, we don't check for escape characters
 
@@ -436,16 +430,25 @@ uint8_t append_file(char* file_name)
       STAT1_PORT ^= (1<<STAT1); //Toggle the STAT1 LED each time we record the buffer
 
       idleTime = 0; //We have characters so reset the idleTime
-
-      /*if(timeSinceLastRecord++ > maxLoops) { //This will force a sync approximately every second
-        timeSinceLastRecord = 0;
+      
+      // sync periodically
+      if ((syncTime++) > MAX_SYNC_TIME_MSEC) {
+        NewSerial.println("syncing ");
+        STAT2_PORT ^= (1<<STAT2); //Toggle the STAT2 LED each time we sync the file
+        syncTime = 0;
         file.sync(); //Sync the card
-      }*/
+      }
+      
+      goto MYJUMP;
     }
-    else if(idleTime > MAX_IDLE_TIME_MSEC) { //If we haven't received any characters in 2s, goto sleep
+
+    //If we haven't received any characters in a while, goto sleep
+    if (idleTime++ > MAX_IDLE_TIME_MSEC) {
+      NewSerial.println("syncing and sleeping");
       file.sync(); //Sync the card before we go to sleep
 
       STAT1_PORT &= ~(1<<STAT1); //Turn off stat LED to save power
+      STAT2_PORT &= ~(1<<STAT2); //Turn off stat LED to save power
 
       power_timer0_disable(); //Shut down peripherals we don't need
       power_spi_disable();
@@ -454,12 +457,11 @@ uint8_t append_file(char* file_name)
       power_spi_enable(); //After wake up, power up peripherals
       power_timer0_enable();
 
+      syncTime = 0;
       idleTime = 0; //A received character woke us up to reset the idleTime
     }
-    else {
-      idleTime++;
-      delay(1); //Burn 1ms waiting for new characters coming in
-    }
+
+    delay(1); //Burn 1ms waiting for new characters coming in
   }
 
   return(1); //Success!
@@ -702,6 +704,7 @@ void read_config_file(void)
       else if( strcmp(new_setting, "38400") == 0) new_system_baud = BAUD_38400;
       else if( strcmp(new_setting, "57600") == 0) new_system_baud = BAUD_57600;
       else if( strcmp(new_setting, "115200") == 0) new_system_baud = BAUD_115200;
+      else if( strcmp(new_setting, "230400") == 0) new_system_baud = BAUD_230400;
       else new_system_baud = BAUD_9600; //Default is 9600bps
     }
     else if(setting_number == 1) //Escape character
@@ -750,6 +753,7 @@ void read_config_file(void)
   if(new_system_baud == BAUD_38400) strcpy(temp_string, "38400");
   if(new_system_baud == BAUD_57600) strcpy(temp_string, "57600");
   if(new_system_baud == BAUD_115200) strcpy(temp_string, "115200");
+  if(new_system_baud == BAUD_230400) strcpy(temp_string, "230400");
 
   sprintf(temp, ",%d,%d,%d,%d,%d\0", new_system_escape, new_system_max_escape, new_system_mode, new_system_verbose, new_system_echo);
   strcat(temp_string, temp); //Add this string to the system string
@@ -775,6 +779,7 @@ void read_config_file(void)
     if(setting_uart_speed == BAUD_38400) NewSerial.begin(38400);
     if(setting_uart_speed == BAUD_57600) NewSerial.begin(57600);
     if(setting_uart_speed == BAUD_115200) NewSerial.begin(115200);
+    if(setting_uart_speed == BAUD_230400) NewSerial.begin(230400);
 
     recordNewSettings = true;
   }
@@ -887,6 +892,7 @@ void record_config_file(void)
   if(current_system_baud == BAUD_38400) strcpy(settings_string, "38400");
   if(current_system_baud == BAUD_57600) strcpy(settings_string, "57600");
   if(current_system_baud == BAUD_115200) strcpy(settings_string, "115200");
+  if(current_system_baud == BAUD_230400) strcpy(settings_string, "230400");
 
   //Convert system settings to visible ASCII characters
   sprintf(temp, ",%d,%d,%d,%d,%d\0", current_system_escape, current_system_max_escape, current_system_mode, current_system_verbose, current_system_echo);
