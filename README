@@ -4,14 +4,16 @@ This version of OpenLog is forked from Pete Hollands' binary-safe version of Ope
 
 OpenLog_v3_Light is also binary-safe because it has no command line interface and ignores
 escape characters. The version of OpenLog_v3_Light in this fork has been modified:
-    - to support 230.4K baud in addition to the standard rates. (exact OpenLog rate is 222.222K baud,
+    - to support 230.4K baud in addition to the standard rates. 
+        (exact OpenLog rate is 222.222K baud,
         but it works with an FTDI USB-serial cable set at 230.4K)
     - to support software flow control (control-S and control-Q
-        sent from OpenLog) to request that the sender stop and start transmission. This allows
-        the sender to implement a large buffer to prevent loss of data while the OpenLog is busy
-        writing a block of data to flash memory (this may take up to 250msec).
-    - to call file.sync() about once every 10 seconds to limit loss of data if power-off
-        occurs during a transmission
+        sent from OpenLog) to request that the sender stop and start transmission. 
+        This allows the sender to implement a large buffer to prevent loss of data 
+        while the OpenLog is busy writing a block of data to flash memory 
+        (this may take up to 250msec).
+    - to call file.sync() about once every 10 seconds to limit loss of data if 
+        power-off occurs during a transmission
 
 
 
