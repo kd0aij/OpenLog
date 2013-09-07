@@ -5,7 +5,7 @@
  
  OpenLog hardware and firmware are released under the Creative Commons Share Alike v3.0 license.
  http://creativecommons.org/licenses/by-sa/3.0/
- Feel free to use, distribute, and sell varients of OpenLog. All we ask is that you include attribution of 'Based on OpenLog by SparkFun'.
+ Feel free to use, distribute, hand sell varients of OpenLog. All we ask is that you include attribution of 'Based on OpenLog by SparkFun'.
  
  OpenLog is based on the work of Bill Greiman and sdfatlib: http://code.google.com/p/sdfatlib/
  
@@ -413,7 +413,7 @@ uint8_t append_file(char* file_name)
   const uint16_t MAX_IDLE_TIME_MSEC = 250; //The number of milliseconds before unit goes to sleep
 
   uint16_t syncTime = 0;
-  const uint16_t MAX_SYNC_TIME_MSEC = 17000; // about 10 seconds at 115.2K baud
+  const uint16_t MAX_SYNC_TIME_MSEC = 1700; // about 1 second at 115.2K baud
 
   //Start recording incoming characters
   while(1) {
